@@ -45,6 +45,7 @@ Edit `.env`:
 ```env
 EVENT_URL=https://fixr.co/organiser/timepiece
 EVENT_DATA_URL=https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json
+READER_BASE_URL=https://r.jina.ai/http://r.jina.ai/http://
 STATE_FILE=src/state.json
 EMAIL_TO=person@example.com,friend@example.com
 EMAIL_FROM=alerts@example.com
@@ -75,6 +76,7 @@ Optionally add this repository variable under **Settings → Secrets and variabl
 
 - `EVENT_URL` defaults to `https://fixr.co/organiser/timepiece`
 - `EVENT_DATA_URL` defaults to `https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json`
+- `READER_BASE_URL` defaults to a public reader fallback used only when FIXR blocks GitHub with `403`
 
 The workflow runs every 10 minutes and can also be started manually from the Actions tab.
 
@@ -97,6 +99,6 @@ If sending the email fails, the monitor does not mark tickets as available, so t
 
 ## Notes
 
-FIXR may block simple automated HTML requests or change its page structure. The monitor uses the public Next.js JSON payload first via `EVENT_DATA_URL`, then supports browser-like page scraping if you clear that variable. If the JSON build URL changes after a FIXR deployment, open the organiser page source, find `__NEXT_DATA__.buildId`, and update `EVENT_DATA_URL` to `https://fixr.co/_next/data/<buildId>/organiser/timepiece.json`.
+FIXR may block simple automated HTML requests or change its page structure. The monitor uses the public Next.js JSON payload first via `EVENT_DATA_URL`, then tries the configured `READER_BASE_URL` fallback if GitHub is blocked with `403`. If the JSON build URL changes after a FIXR deployment, open the organiser page source, find `__NEXT_DATA__.buildId`, and update `EVENT_DATA_URL` to `https://fixr.co/_next/data/<buildId>/organiser/timepiece.json`.
 
 Credentials are read only from environment variables or GitHub Secrets. The monitor logs availability signals for debugging but never logs SMTP credentials.

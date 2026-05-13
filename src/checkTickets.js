@@ -9,6 +9,7 @@ const { sendTicketAlert } = require("./emailer");
 const EVENT_URL = process.env.EVENT_URL || "https://fixr.co/organiser/timepiece";
 const EVENT_DATA_URL =
   process.env.EVENT_DATA_URL || "https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json";
+const READER_BASE_URL = process.env.READER_BASE_URL || "https://r.jina.ai/http://r.jina.ai/http://";
 const STATE_FILE = process.env.STATE_FILE || path.join(__dirname, "state.json");
 
 const AVAILABLE_TEXT = [
@@ -273,6 +274,26 @@ async function fetchEventHtml(eventUrl) {
 }
 
 async function fetchEventData(dataUrl) {
+  try {
+    return {
+      data: await fetchJsonUrl(dataUrl),
+      source: dataUrl,
+    };
+  } catch (error) {
+    if (error.response?.status !== 403 || !READER_BASE_URL) {
+      throw error;
+    }
+
+    const readerUrl = `${READER_BASE_URL}${dataUrl}`;
+    console.log("Direct FIXR request was blocked with 403. Trying reader fallback.");
+    return {
+      data: await fetchJsonFromReader(readerUrl),
+      source: readerUrl,
+    };
+  }
+}
+
+async function fetchJsonUrl(dataUrl) {
   const response = await axios.get(dataUrl, {
     timeout: 20000,
     maxRedirects: 5,
@@ -291,15 +312,35 @@ async function fetchEventData(dataUrl) {
   return response.data;
 }
 
+async function fetchJsonFromReader(readerUrl) {
+  const response = await axios.get(readerUrl, {
+    timeout: 30000,
+    maxRedirects: 5,
+    validateStatus: (status) => status >= 200 && status < 400,
+    headers: {
+      "User-Agent": "FIXR-Timepiece-Monitor/1.0",
+      Accept: "text/plain,text/markdown,*/*",
+      "Cache-Control": "no-cache",
+    },
+  });
+
+  const body = String(response.data || "");
+  const marker = "Markdown Content:";
+  const markerIndex = body.indexOf(marker);
+  const jsonText = (markerIndex >= 0 ? body.slice(markerIndex + marker.length) : body).trim();
+
+  return JSON.parse(jsonText);
+}
+
 async function checkTicketAvailability(eventUrl = EVENT_URL) {
   if (EVENT_DATA_URL) {
-    const data = await fetchEventData(EVENT_DATA_URL);
+    const { data, source } = await fetchEventData(EVENT_DATA_URL);
     const signals = collectObjectSignals(data);
     const decision = decideAvailability(signals);
 
     return {
       eventUrl,
-      dataUrl: EVENT_DATA_URL,
+      dataUrl: source,
       checkedAt: new Date().toISOString(),
       ...decision,
     };
