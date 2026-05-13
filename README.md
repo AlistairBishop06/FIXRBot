@@ -6,7 +6,8 @@ It is designed to run on GitHub Actions every 10 minutes, so no server is requir
 
 ## How It Works
 
-- Fetches the configured FIXR Timepiece page.
+- Polls the configured FIXR JSON data endpoint when available.
+- Falls back to the configured FIXR Timepiece page if `EVENT_DATA_URL` is blank.
 - Looks for ticket availability signals in page text, buttons, links, and embedded JSON.
 - Persists the previous result in `state.json`.
 - Sends one email only when availability changes from `false` to `true`.
@@ -43,6 +44,7 @@ Edit `.env`:
 
 ```env
 EVENT_URL=https://fixr.co/organiser/timepiece
+EVENT_DATA_URL=https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json
 STATE_FILE=src/state.json
 EMAIL_TO=person@example.com,friend@example.com
 EMAIL_FROM=alerts@example.com
@@ -72,6 +74,7 @@ Add these repository secrets in GitHub under **Settings → Secrets and variable
 Optionally add this repository variable under **Settings → Secrets and variables → Actions → Variables**:
 
 - `EVENT_URL` defaults to `https://fixr.co/organiser/timepiece`
+- `EVENT_DATA_URL` defaults to `https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json`
 
 The workflow runs every 10 minutes and can also be started manually from the Actions tab.
 
@@ -94,6 +97,6 @@ If sending the email fails, the monitor does not mark tickets as available, so t
 
 ## Notes
 
-FIXR may block simple automated HTTP requests or change its page structure. The monitor uses browser-like request headers and multiple detection strategies, including event links on the Timepiece organiser page. If you know the exact event URL, set `EVENT_URL` to that event-specific page. If the page starts returning persistent `403` responses in GitHub Actions, point `EVENT_URL` at a stable FIXR API, widget endpoint, or page that exposes the ticket state.
+FIXR may block simple automated HTML requests or change its page structure. The monitor uses the public Next.js JSON payload first via `EVENT_DATA_URL`, then supports browser-like page scraping if you clear that variable. If the JSON build URL changes after a FIXR deployment, open the organiser page source, find `__NEXT_DATA__.buildId`, and update `EVENT_DATA_URL` to `https://fixr.co/_next/data/<buildId>/organiser/timepiece.json`.
 
 Credentials are read only from environment variables or GitHub Secrets. The monitor logs availability signals for debugging but never logs SMTP credentials.

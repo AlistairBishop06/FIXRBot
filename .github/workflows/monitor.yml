@@ -34,6 +34,7 @@ jobs:
       - name: Check tickets
         env:
           EVENT_URL: ${{ vars.EVENT_URL || 'https://fixr.co/organiser/timepiece' }}
+          EVENT_DATA_URL: ${{ vars.EVENT_DATA_URL || 'https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json' }}
           STATE_FILE: .monitor-state/state.json
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}

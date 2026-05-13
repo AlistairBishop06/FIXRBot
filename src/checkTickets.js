@@ -7,6 +7,8 @@ const cheerio = require("cheerio");
 const { sendTicketAlert } = require("./emailer");
 
 const EVENT_URL = process.env.EVENT_URL || "https://fixr.co/organiser/timepiece";
+const EVENT_DATA_URL =
+  process.env.EVENT_DATA_URL || "https://fixr.co/_next/data/f560c3d2/organiser/timepiece.json";
 const STATE_FILE = process.env.STATE_FILE || path.join(__dirname, "state.json");
 
 const AVAILABLE_TEXT = [
@@ -121,6 +123,76 @@ function collectJsonSignals($) {
   return signals;
 }
 
+function collectObjectSignals(value) {
+  const signals = [];
+
+  walkJson(value, (key, child) => {
+    const normalizedKey = normalizeText(key);
+    const normalizedValue = normalizeText(child);
+
+    if (typeof child === "string") {
+      if (
+        normalizedKey.includes("availability") &&
+        /instock|in stock|available|limitedavailability/.test(normalizedValue)
+      ) {
+        signals.push(makeSignal("available", `json:${key}`, child));
+      }
+
+      if (
+        normalizedKey.includes("availability") &&
+        /soldout|sold out|outofstock|out of stock|unavailable/.test(normalizedValue)
+      ) {
+        signals.push(makeSignal("unavailable", `json:${key}`, child));
+      }
+
+      if (
+        /status|sale|state/.test(normalizedKey) &&
+        /live|open|available|on sale|onsale/.test(normalizedValue)
+      ) {
+        signals.push(makeSignal("available", `json:${key}`, child));
+      }
+    }
+
+    if (typeof child === "boolean") {
+      if (/soldout|sold_out|is_sold_out|isSoldOut/i.test(key)) {
+        signals.push(makeSignal(child ? "unavailable" : "available", `json:${key}`, child));
+      }
+
+      if (/available|onSale|on_sale|is_live|isLive/i.test(key) && child === true) {
+        signals.push(makeSignal("available", `json:${key}`, child));
+      }
+    }
+
+    if (
+      typeof child === "number" &&
+      /remaining|quantity|inventory|available_count|availableCount/i.test(key) &&
+      child > 0
+    ) {
+      signals.push(makeSignal("available", `json:${key}`, child));
+    }
+  });
+
+  const events = value?.pageProps?.data?.data;
+  if (Array.isArray(events)) {
+    const availableEvents = events.filter(
+      (event) => event && event.soldOut === false && event.groupIsSoldOut === false
+    );
+    const soldOutEvents = events.filter(
+      (event) => event && (event.soldOut === true || event.groupIsSoldOut === true)
+    );
+
+    if (availableEvents.length > 0) {
+      signals.push(makeSignal("available", "json:events", `${availableEvents.length} available event(s)`));
+    }
+
+    if (soldOutEvents.length > 0) {
+      signals.push(makeSignal("unavailable", "json:events", `${soldOutEvents.length} sold out event(s)`));
+    }
+  }
+
+  return signals;
+}
+
 function collectHtmlSignals($) {
   const signals = [];
   const bodyText = normalizeText($("body").text());
@@ -200,7 +272,39 @@ async function fetchEventHtml(eventUrl) {
   return response.data;
 }
 
+async function fetchEventData(dataUrl) {
+  const response = await axios.get(dataUrl, {
+    timeout: 20000,
+    maxRedirects: 5,
+    validateStatus: (status) => status >= 200 && status < 400,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 FIXR-Timepiece-Monitor/1.0",
+      Accept: "application/json,text/plain,*/*",
+      "Accept-Language": "en-GB,en;q=0.9",
+      Referer: EVENT_URL,
+      "Cache-Control": "no-cache",
+    },
+  });
+
+  return response.data;
+}
+
 async function checkTicketAvailability(eventUrl = EVENT_URL) {
+  if (EVENT_DATA_URL) {
+    const data = await fetchEventData(EVENT_DATA_URL);
+    const signals = collectObjectSignals(data);
+    const decision = decideAvailability(signals);
+
+    return {
+      eventUrl,
+      dataUrl: EVENT_DATA_URL,
+      checkedAt: new Date().toISOString(),
+      ...decision,
+    };
+  }
+
   const html = await fetchEventHtml(eventUrl);
   const $ = cheerio.load(html);
   const signals = [...collectJsonSignals($), ...collectHtmlSignals($)];
@@ -241,6 +345,9 @@ function summarizeSignals(signals) {
 async function main() {
   const previousState = await loadState();
   console.log(`Checking Timepiece tickets: ${EVENT_URL}`);
+  if (EVENT_DATA_URL) {
+    console.log(`Using FIXR data endpoint: ${EVENT_DATA_URL}`);
+  }
   console.log(`Previous availability: ${Boolean(previousState.available)}`);
 
   let result;
