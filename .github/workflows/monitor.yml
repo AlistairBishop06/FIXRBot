@@ -2,7 +2,7 @@ name: Monitor Timepiece Tickets
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
