@@ -1,0 +1,27 @@
+{
+  "name": "fixr-timepiece-monitor",
+  "version": "1.0.0",
+  "description": "Lightweight FIXR ticket availability monitor for Timepiece with email alerts.",
+  "main": "src/checkTickets.js",
+  "scripts": {
+    "start": "node src/checkTickets.js",
+    "check": "node src/checkTickets.js"
+  },
+  "keywords": [
+    "fixr",
+    "tickets",
+    "monitor",
+    "github-actions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "nodemailer": "^8.0.7"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

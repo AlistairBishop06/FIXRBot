@@ -1,0 +1,51 @@
+name: Monitor Timepiece Tickets
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore monitor state
+        uses: actions/cache/restore@v4
+        with:
+          path: .monitor-state
+          key: fixr-timepiece-state-${{ github.run_id }}
+          restore-keys: |
+            fixr-timepiece-state-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check tickets
+        env:
+          EVENT_URL: ${{ vars.EVENT_URL || 'https://fixr.co/organiser/timepiece' }}
+          STATE_FILE: .monitor-state/state.json
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: npm start
+
+      - name: Save monitor state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .monitor-state
+          key: fixr-timepiece-state-${{ github.run_id }}
