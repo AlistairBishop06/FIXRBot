@@ -1,4 +1,21 @@
-node_modules/
+# Secrets — never commit real environment values
 .env
-.monitor-state/
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Runtime state (kept locally / on the VPS only, not in version control)
+src/state.json
+src/state.json.tmp
+
+# PM2 / process manager artifacts
+.pm2/
+
+# Logs
+*.log
 npm-debug.log*
+
+# OS/editor cruft
+.DS_Store

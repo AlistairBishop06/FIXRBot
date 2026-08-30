@@ -1,8 +1,12 @@
 name: Monitor Timepiece Tickets
 
+# The schedule trigger has been removed: production monitoring now runs
+# continuously on a VPS under PM2 (see README.md, "Deploying to a Linux
+# VPS"). This workflow is kept only for manual/dev testing via
+# workflow_dispatch. Do NOT re-add a `schedule:` trigger here while the
+# VPS is also running src/monitor.js, or FIXR will be polled from both
+# places at once and the two state files can disagree.
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -42,7 +46,11 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: npm start
+        # NOTE: this runs `npm run check` (the one-shot script), not
+        # `npm start`. `npm start` now launches the continuous VPS
+        # monitor loop (src/monitor.js), which never exits — running
+        # that here would just hang until timeout-minutes kills the job.
+        run: npm run check
 
       - name: Save monitor state
         if: always()

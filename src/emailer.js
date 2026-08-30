@@ -47,6 +47,12 @@ async function sendTicketAlert({ eventUrl }) {
   });
 }
 
+// Alias with the name used by the long-running monitor (src/monitor.js).
+// Same function, same behaviour — kept so call sites read clearly as
+// "send the availability notification" rather than a generic alert.
+const sendAvailabilityEmail = sendTicketAlert;
+
 module.exports = {
   sendTicketAlert,
+  sendAvailabilityEmail,
 };

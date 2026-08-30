@@ -4,7 +4,8 @@
   "description": "Lightweight FIXR ticket availability monitor for Timepiece with email alerts.",
   "main": "src/checkTickets.js",
   "scripts": {
-    "start": "node src/checkTickets.js",
+    "start": "node src/monitor.js",
+    "monitor": "node src/monitor.js",
     "check": "node src/checkTickets.js"
   },
   "keywords": [

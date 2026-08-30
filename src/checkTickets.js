@@ -441,10 +441,43 @@ async function main() {
   });
 }
 
+/**
+ * Stable entry point intended for repeated calls from a long-running
+ * monitoring process (see src/monitor.js).
+ *
+ * Unlike checkTicketAvailability(), this never throws. Every failure mode
+ * (HTTP errors, 403s, timeouts, DNS failures, malformed/unexpected JSON,
+ * anti-bot challenge pages, etc.) is caught and normalized into
+ * `{ ok: false, error }` so that a single bad request can never crash or
+ * halt the monitoring loop. Callers should treat `ok: false` as "no valid
+ * result this cycle" and must NOT treat it as "tickets unavailable".
+ *
+ * @param {string} [eventUrl]
+ * @returns {Promise<
+ *   | { ok: true, available: boolean, checkedAt: string, eventUrl: string, dataUrl?: string, availableSignals: object[], unavailableSignals: object[] }
+ *   | { ok: false, error: string, checkedAt: string }
+ * >}
+ */
+async function checkTickets(eventUrl = EVENT_URL) {
+  try {
+    const result = await checkTicketAvailability(eventUrl);
+    return { ok: true, ...result };
+  } catch (error) {
+    const status = error.response?.status;
+    const reason = status ? `HTTP ${status}` : error.code || error.message || "Unknown error";
+    return {
+      ok: false,
+      error: reason,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
+
 if (require.main === module) {
   main();
 }
 
 module.exports = {
   checkTicketAvailability,
+  checkTickets,
 };
